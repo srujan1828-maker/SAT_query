@@ -259,6 +259,27 @@ footer {
   height: 100%;
   object-fit: contain;
 }
+.evidence-overlay-box {
+  position: absolute;
+  z-index: 3;
+  border: 2px solid #f87171;
+  background: rgba(239, 68, 68, 0.1);
+  pointer-events: none;
+}
+.evidence-overlay-box span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 2px 5px;
+  background: rgba(8, 15, 23, 0.9);
+  color: #fee2e2;
+  font-size: 10px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .range {
   margin: 15px 0;
 }

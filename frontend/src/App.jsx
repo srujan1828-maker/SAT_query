@@ -502,7 +502,11 @@ export default function App({ mode = "vqa", title = "Ask Satellite" }) {
             </div>
           </section>
           {result.images.length > 0 && (
-            <EvidenceViewer key={result.run_id} images={result.images} />
+            <EvidenceViewer
+              key={result.run_id}
+              images={result.images}
+              overlayBoxes={result.overlay_boxes || []}
+            />
           )}
         </>
       )}

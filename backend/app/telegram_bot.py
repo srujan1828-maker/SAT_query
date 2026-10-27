@@ -78,10 +78,13 @@ def _record_update_once(update_id: int) -> bool:
 def _get_claim(chat_id: int) -> dict[str, Any] | None:
     with sqlite3.connect(DATA_DIR / "jobs.sqlite3", timeout=10) as connection:
         row = connection.execute(
-            "SELECT latitude, longitude, claim_context FROM telegram_claims WHERE chat_id = ?",
+            "SELECT latitude, longitude, claim_context, updated_at FROM telegram_claims WHERE chat_id = ?",
             (chat_id,),
         ).fetchone()
     if row is None:
+        return None
+    if row[3] < int(time.time()) - 24 * 60 * 60:
+        _clear_claim(chat_id)
         return None
     return {"lat": row[0], "lng": row[1], "context": row[2]}
 
@@ -407,7 +410,10 @@ async def _handle_message(message: dict[str, Any]) -> None:
         return
 
     text = message.get("text", "")
-    if isinstance(text, str) and text.split(maxsplit=1)[0].casefold() == "/start":
+    command = ""
+    if isinstance(text, str) and text.strip():
+        command = text.strip().split(maxsplit=1)[0].split("@", 1)[0].casefold()
+    if command == "/start":
         _clear_claim(chat_id)
         await _send_message(
             chat_id,
@@ -479,6 +485,21 @@ async def _handle_message(message: dict[str, Any]) -> None:
         if not value
     ]
     if missing:
+        known_details = ", ".join(
+            f"{name}={value}"
+            for name, value in (
+                ("crop_type", details["crop_type"]),
+                ("damage_type", details["damage_type"]),
+                ("claim_date", details["claim_date"]),
+                ("farmer_name", details["farmer_name"]),
+            )
+            if value
+        )
+        if known_details:
+            _append_claim_context(
+                chat_id,
+                f"Previously extracted claim details (farmer may correct these): {known_details}",
+            )
         await _send_message(chat_id, "Please provide " + ", ".join(missing) + ". You can send all missing details in one message.")
         return
 
@@ -535,7 +556,9 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
         raise HTTPException(503, "Telegram webhook is not configured.")
     expected_secret = os.environ["TELEGRAM_WEBHOOK_SECRET"]
     supplied_secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
-    if not hmac.compare_digest(supplied_secret, expected_secret):
+    if not hmac.compare_digest(
+        supplied_secret.encode("utf-8"), expected_secret.encode("utf-8")
+    ):
         raise HTTPException(403, "Invalid webhook secret.")
     body = await request.body()
     if len(body) > MAX_UPDATE_BYTES:

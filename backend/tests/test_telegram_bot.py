@@ -1,14 +1,21 @@
+import pytest
 from fastapi.testclient import TestClient
 
-from app import main, telegram_bot
+from app import imagery, main, telegram_bot
 from app.models import CropDamageRequest, CropDamageResult
 
 
-def test_webhook_requires_token_and_secret(monkeypatch, tmp_path):
+@pytest.fixture(autouse=True)
+def isolated_telegram_storage(monkeypatch, tmp_path):
     monkeypatch.setattr(telegram_bot, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(imagery, "ARTIFACTS", tmp_path / "artifacts")
+    monkeypatch.setattr(main, "DB", tmp_path / "jobs.sqlite3")
+    imagery.ARTIFACTS.mkdir()
+
+
+def test_webhook_requires_token_and_secret(monkeypatch):
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-token")
     monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", "test_secret_123")
-    monkeypatch.setattr(main, "DB", tmp_path / "jobs.sqlite3")
 
     with TestClient(main.app) as client:
         rejected = client.post(

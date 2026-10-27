@@ -78,6 +78,30 @@ it("keeps paired layers in one synchronized transform", () => {
   });
   expect(a.style.filter).toBe(b.style.filter);
 });
+it("renders GeoChat detection boxes on their matching evidence image", () => {
+  render(
+    <EvidenceViewer
+      images={[image]}
+      overlayBoxes={[
+        {
+          image_id: "a",
+          label: "River",
+          x_min: 0.1,
+          y_min: 0.2,
+          x_max: 0.7,
+          y_max: 0.8,
+          confidence: 0.91,
+        },
+      ]}
+    />,
+  );
+  const box = screen.getByText("River").parentElement;
+  expect(box.className).toBe("evidence-overlay-box");
+  expect(box.style.left).toBe("10%");
+  expect(box.style.top).toBe("20%");
+  expect(box.style.width).toBe("60%");
+  expect(box.style.height).toBe("60%");
+});
 it("preserves zero coordinates", () => {
   render(<App />);
   expect(screen.getByTestId("coords").textContent).toBe("0,0");

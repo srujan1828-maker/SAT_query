@@ -19,7 +19,7 @@ function SpectralPanels({ images }) {
     {im.view_warnings?.map(w => <p key={w} role="status">{w}</p>)}
   </section>;
 }
-export default function EvidenceViewer({ images }) {
+export default function EvidenceViewer({ images, overlayBoxes = [] }) {
   const [zoom, setZoom] = useState(1),
     [actual, setActual] = useState(false),
     [split, setSplit] = useState(50);
@@ -157,15 +157,34 @@ export default function EvidenceViewer({ images }) {
                   Evidence expired or failed to load. Run the query again.
                 </p>
               ) : (
-                <img
-                  src={im.url}
-                  alt={`${im.sensor} ${im.role}, acquired ${im.date}`}
-                  draggable={false}
-                  onError={() => setErrors((v) => ({ ...v, [im.id]: true }))}
-                  style={{
-                    filter: `contrast(${contrast}) brightness(${brightness})`,
-                  }}
-                />
+                <>
+                  <img
+                    src={im.url}
+                    alt={`${im.sensor} ${im.role}, acquired ${im.date}`}
+                    draggable={false}
+                    onError={() => setErrors((v) => ({ ...v, [im.id]: true }))}
+                    style={{
+                      filter: `contrast(${contrast}) brightness(${brightness})`,
+                    }}
+                  />
+                  {overlayBoxes
+                    .filter((box) => box.image_id === im.id)
+                    .map((box, index) => (
+                      <div
+                        key={`${box.image_id}-${index}`}
+                        className="evidence-overlay-box"
+                        title={`${box.label} · ${Math.round(box.confidence * 100)}% model confidence`}
+                        style={{
+                          left: `${Number((box.x_min * 100).toFixed(2))}%`,
+                          top: `${Number((box.y_min * 100).toFixed(2))}%`,
+                          width: `${Number(((box.x_max - box.x_min) * 100).toFixed(2))}%`,
+                          height: `${Number(((box.y_max - box.y_min) * 100).toFixed(2))}%`,
+                        }}
+                      >
+                        <span>{box.label}</span>
+                      </div>
+                    ))}
+                </>
               )}
             </div>
           ))}

@@ -21,6 +21,9 @@ dependencies = [
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = ["app*"]
+
 [project.optional-dependencies]
 earth-engine = ["earthengine-api>=1.0,<2"]
 test = ["pytest>=8,<10"]

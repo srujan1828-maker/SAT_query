@@ -8,7 +8,7 @@ import rasterio
 from PIL import Image
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
-from app import main, pipeline, imagery
+from app import main, pipeline, imagery, services
 from app.models import QueryRequest, ImageResult
 from app.imagery import Observation, EvidenceUnavailable, aoi_grid, water_change
 
@@ -120,6 +120,53 @@ def test_geochat_detections_are_attached_to_the_evidence_image(monkeypatch):
     assert result.overlay_boxes[0].image_id == "single"
     assert result.overlay_boxes[0].label == "River"
     assert result.overlay_boxes[0].confidence == 0.91
+
+
+def test_geochat_client_uses_the_render_configured_bearer_secret(monkeypatch):
+    monkeypatch.setenv("GEOCHAT_ENDPOINT_URL", "https://kaggle-tunnel.example")
+    monkeypatch.setenv("GEOCHAT_API_KEY", "test-only-geochat-secret")
+    settings = services.Settings.from_environment()
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"answer": "Map scene analyzed.", "boxes": []}
+
+    class Client:
+        def __init__(self, **kwargs):
+            assert kwargs["timeout"].read == settings.geochat_timeout_seconds
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def post(self, url, **kwargs):
+            assert url == "https://kaggle-tunnel.example/infer"
+            assert kwargs["headers"] == {
+                "Authorization": "Bearer test-only-geochat-secret"
+            }
+            assert kwargs["data"] == {"prompt": "Map this scene", "task": "vqa"}
+            assert kwargs["files"]["image"][1] == b"scene-pixels"
+            return Response()
+
+    monkeypatch.setattr(services.httpx, "AsyncClient", Client)
+    answer, boxes, confident, error = asyncio.run(
+        services.geochat_answer(
+            "Map this scene",
+            settings,
+            image_data=b"scene-pixels",
+            image_content_type="image/png",
+        )
+    )
+
+    assert answer == "Map scene analyzed."
+    assert boxes == []
+    assert not confident
+    assert error is None
 
 
 def test_unconfigured_paired_task_explains_its_provider_requirement(monkeypatch):
