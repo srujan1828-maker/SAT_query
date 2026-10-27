@@ -175,11 +175,19 @@ export function printOrSaveAIDossier(data) {
     return;
   }
 
+  const escapeHtml = (value) =>
+    String(value ?? "").replace(/[&<>"']/g, (character) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    })[character]);
   const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>SatQuery AI Planetary Intelligence Dossier</title>
+  <title>SatQuery AI-assisted screening summary</title>
   <style>
     @page { size: A4; margin: 20mm; }
     body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #0f172a; margin: 0; padding: 24px; line-height: 1.6; font-size: 13px; }
@@ -197,17 +205,20 @@ export function printOrSaveAIDossier(data) {
     <button onclick="window.print()" style="background:#4338ca; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:bold;">🖨️ Print / Save as PDF</button>
   </div>
   <div class="header">
-    <h1>SatQuery AI Satellite Intelligence Dossier</h1>
-    <p>Autonomous Planetary Analysis Orchestrated via Gemini Multi-Modal NLU</p>
+    <h1>SatQuery AI-assisted screening summary</h1>
+    <p>Informational output generated from the configured analysis service</p>
   </div>
   <div class="meta-bar">
-    <strong>Inquiry:</strong> "${data.prompt}"<br>
-    <strong>Engine Route:</strong> ${data.result?.module_used || "SatQuery Intelligence"} | <strong>Timestamp:</strong> ${new Date().toLocaleString()}
+    <strong>Inquiry:</strong> "${escapeHtml(data.prompt)}"<br>
+    <strong>Engine route:</strong> ${escapeHtml(data.result?.module_used || "SatQuery analysis")}<br>
+    <strong>Observation window:</strong> ${escapeHtml(data.startDate)} to ${escapeHtml(data.endDate)}<br>
+    <strong>Timestamp:</strong> ${escapeHtml(new Date().toLocaleString())}
   </div>
-  <div class="section-title">Forensic AI Planetary Findings</div>
+  <div class="section-title">Screening narrative</div>
   <div class="narrative">
-    ${(data.result?.narrative || "").replace(/\n/g, "<br>")}
+    ${escapeHtml(data.result?.narrative || "").replace(/\n/g, "<br>")}
   </div>
+  <p>This is experimental AI-assisted screening, not a validated measurement, official assessment, emergency instruction, or legal advice. Verify imagery and conclusions independently.</p>
 </body>
 </html>`;
 

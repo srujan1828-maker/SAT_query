@@ -1,6 +1,17 @@
 // @vitest-environment jsdom
 import { it, expect, vi, afterEach } from "vitest";
-import { fetchGeocodeSuggestions, submitQuery, request } from "../api/query";
+import {
+  aiAnalyze,
+  analyzeCropDamage,
+  analyzeEnvironment,
+  analyzeFlood,
+  fetchGeocodeSuggestions,
+  getFloodRoads,
+  getSafeRoute,
+  request,
+  scrapeCropData,
+  submitQuery,
+} from "../api/query";
 afterEach(() => vi.unstubAllGlobals());
 it("uses backend geocode results without external fallback", async () => {
   const fetch = vi.fn(async () => ({
@@ -57,4 +68,41 @@ it("uses same-origin routing for the deployed Render backend", async () => {
   expect(selectApiBase("https://satquery.onrender.com/", "sat-query-six.vercel.app")).toBe("");
   expect(selectApiBase("", "localhost")).toBe("http://127.0.0.1:8000");
   expect(selectApiBase("https://custom.example", "sat-query-six.vercel.app")).toBe("https://custom.example");
+});
+
+it("returns backend errors instead of substituting fabricated analysis data", async () => {
+  const fetch = vi.fn(async () => ({
+    ok: false,
+    json: async () => ({ detail: "Backend unavailable" }),
+  }));
+  vi.stubGlobal("fetch", fetch);
+
+  await expect(analyzeFlood({})).rejects.toThrow("Backend unavailable");
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("uses the current backend routes for feature workflows", async () => {
+  const fetch = vi.fn(async () => ({
+    ok: true,
+    json: async () => ({ source: "backend" }),
+  }));
+  vi.stubGlobal("fetch", fetch);
+
+  await analyzeFlood({});
+  await getFloodRoads({});
+  await getSafeRoute({});
+  await analyzeCropDamage({});
+  await analyzeEnvironment({});
+  await aiAnalyze({});
+  await scrapeCropData(10, 20, "rice");
+
+  expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+    expect.stringContaining("/api/flood/analyze"),
+    expect.stringContaining("/api/flood/roads"),
+    expect.stringContaining("/api/flood/safe-route"),
+    expect.stringContaining("/api/crop-damage/analyze"),
+    expect.stringContaining("/api/environment/analyze"),
+    expect.stringContaining("/api/ai/analyze"),
+    expect.stringContaining("/api/crops/scrape"),
+  ]);
 });
