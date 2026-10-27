@@ -1,11 +1,13 @@
 # Deployment
 
+For a step-by-step Vercel + Render setup, required/optional API keys, and Telegram integration status, see the [Cloud Deployment Setup Guide](./CLOUD_DEPLOYMENT_SETUP.md).
+
 1. Deploy `backend/Dockerfile` with root directory `backend`.
 2. Run one uvicorn worker (the Dockerfile already does this). Multi-worker replicas require an external job queue, shared object store and shared geocoder budget before scaling.
-3. Set `FRONTEND_URL` to the exact production frontend origin(s). Defaults only allow localhost. Configure optional model credentials in the hosting secret store.
+3. Configure provider credentials as backend secrets in the hosting dashboard. Do not expose server credentials through frontend `VITE_*` variables. See the [cloud setup guide](./CLOUD_DEPLOYMENT_SETUP.md) for which keys are required or optional.
 4. Mount persistent storage and set `SATQUERY_DATA_DIR` to it. Without storage, restarts lose images and job records. SQLite records survive restarts on a persistent volume; interrupted jobs become failed and require retry.
 5. Set `MAX_ACTIVE_JOBS` based on memory and `ANALYSIS_TIMEOUT_SECONDS` (default 240). Each analysis runs in its own process and can be terminated, including blocking GDAL reads.
-6. Set frontend `VITE_API_BASE_URL` at build time, then deploy from the root Vercel configuration. `npm ci` uses the committed lockfile. Cesium assets and MediaPipe WASM are copied into public build output.
+6. Deploy the frontend from the repository root using the checked-in Vercel configuration. Leave `VITE_API_BASE_URL` empty for the same-origin `/api/*` and `/media/*` rewrites. `npm ci` uses the committed lockfile. Cesium assets and MediaPipe WASM are copied into public build output.
 7. Optional `VITE_CESIUM_ION_TOKEN` enables terrain. The viewer works without it. Respect data-service terms; do not assume paid terrain/imagery is free. A browser token must be scoped to allowed origins/assets.
 8. Hand tracking is opt-in and requires HTTPS (localhost also works), camera permission, compatible WebAssembly/worker support and access to the configured model URL. Self-host model bytes for offline deployments.
 9. Configure a trusted reverse proxy correctly for IP budgets. Do not trust arbitrary forwarded headers. The current 20 requests/hour/IP and global concurrency cap are pilot safeguards, not account billing controls.
@@ -37,15 +39,15 @@ Build the backend using `backend/Dockerfile`. It installs `libexpat1` and CA cer
 
 The frontend build verifies Cesium textures/workers and MediaPipe WASM at their public paths. The static-copy plugin preserves source directories by default, so the config explicitly strips the dependency path prefix. Do not remove these rename settings: missing texture URLs can return the SPA HTML and cause image decode failures.
 
-## OPTIONS /api/jobs returns 400
+## API requests fail through Vercel
 
-Set Render's `FRONTEND_URL` to `https://sat-query-six.vercel.app` (or the exact frontend origin shown in your browser). For multiple deployments, provide a comma-separated list of their exact origins. Existing environment values override code defaults: a value containing only localhost must be updated in Render. Redeploy the backend after changing it. Preview deployment hostnames must be added explicitly; all Vercel sites are not trusted. Paths, queries and trailing slashes in configured URLs are normalized to browser origins. CORS permits POST/DELETE and Content-Type preflights; the request's Origin, requested method and requested headers determine whether it is accepted.
+The current FastAPI middleware allows requests from all origins; `FRONTEND_URL` is not currently used to restrict CORS. For the recommended deployment, leave `VITE_API_BASE_URL` empty and check that the root Vercel rewrites point to the correct Render host. Test the Render `/health` endpoint directly and inspect both Render and Vercel logs. Do not treat the current permissive CORS policy as authentication or access control; add authentication and an explicit origin policy before using the public API for private data.
 
 ## Region search blocked by browser CORS
 
-The live Render geocode endpoint returned HTTP 200 with results but no Access-Control-Allow-Origin for the production frontend. Both root and frontend Vercel configs now proxy `/api/*` and `/media/*` to `https://satquery.onrender.com` before the SPA fallback. The browser uses same-origin requests when VITE_API_BASE_URL is empty or equals that known Render URL. This works for preview origins too, without trusting all Vercel sites in backend CORS.
+The root and frontend Vercel configs proxy `/api/*` and `/media/*` to `https://satquery.onrender.com` before the SPA fallback. The browser uses same-origin requests when `VITE_API_BASE_URL` is empty or equals that known Render URL. This also supports Vercel preview origins through the proxy.
 
-Redeploy Vercel to activate rewrites and rebuild the frontend. Leave VITE_API_BASE_URL empty for this setup. If your backend host changes, update both rewrite destinations; a custom VITE_API_BASE_URL continues to use direct requests and requires matching CORS. Local development defaults to local FastAPI. Raw latitude/longitude searches resolve in the browser and do not require a geocoding request. The backend is still required to run analysis.
+Redeploy Vercel to activate rewrites and rebuild the frontend. Leave `VITE_API_BASE_URL` empty for this setup. If your backend host changes, update both rewrite destinations; a custom `VITE_API_BASE_URL` sends direct browser requests, so the backend must permit the frontend origin. Local development defaults to local FastAPI. Raw latitude/longitude searches resolve in the browser and do not require a geocoding request. The backend is still required to run analysis.
 
 ## Public-data crop setup and refreshed frontend
 

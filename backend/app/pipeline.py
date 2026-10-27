@@ -1,8 +1,13 @@
 import asyncio
+import logging
 import re
-from app.models import QueryRequest, QueryResponse, APIError
+from pydantic import ValidationError
+
+from app.models import QueryRequest, QueryResponse, APIError, OverlayBox
 from app.imagery import fetch_observation, water_change, EvidenceUnavailable
 from app.services import Settings, geochat_answer, gemini_answer
+
+logger = logging.getLogger(__name__)
 
 
 def model_unavailable_message(request: QueryRequest, settings: Settings) -> str:
@@ -118,11 +123,29 @@ async def handle_query(request: QueryRequest):
             prompt += f" Measured screening output: {result.metrics}. Explain limitations and do not attribute cause."
         answer = None
         if secondary is None and settings.geochat_url:
-            answer, _, _, _ = await geochat_answer(
-                prompt, settings, primary.content, "image/png"
+            answer, boxes, _, _ = await geochat_answer(
+                prompt, settings, primary.content, "image/png", task=request.mode
             )
             if answer:
                 result.model_provider = "geochat"
+                for box in boxes:
+                    if not isinstance(box, dict):
+                        logger.warning("Ignoring invalid GeoChat bounding box.")
+                        continue
+                    try:
+                        result.overlay_boxes.append(
+                            OverlayBox(
+                                image_id=primary.image.id,
+                                label=str(box.get("label") or "GeoChat detection")[:200],
+                                x_min=box["x_min"],
+                                y_min=box["y_min"],
+                                x_max=box["x_max"],
+                                y_max=box["y_max"],
+                                confidence=box.get("confidence", 0),
+                            )
+                        )
+                    except (KeyError, TypeError, ValueError, ValidationError):
+                        logger.warning("Ignoring invalid GeoChat bounding box.")
         if not answer and settings.gemini_api_key:
             answer, _, _ = await gemini_answer(
                 prompt,

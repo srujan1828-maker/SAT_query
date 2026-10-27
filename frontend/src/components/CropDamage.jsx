@@ -10,14 +10,18 @@ const PRESET_FARMS = [
 ];
 
 export default function CropDamage() {
+  const botUsername = (import.meta.env.VITE_TELEGRAM_BOT_USERNAME || "")
+    .trim()
+    .replace(/^@/, "");
+  const telegramBotUrl = /^[A-Za-z0-9_]{5,32}$/.test(botUsername)
+    ? `https://t.me/${botUsername}`
+    : null;
   const [lat, setLat] = useState(30.9010);
   const [lng, setLng] = useState(75.8573);
   const [cropType, setCropType] = useState("Rice");
   const [damageType, setDamageType] = useState("flood");
   const [claimDate, setClaimDate] = useState("2024-07-25");
   const [farmerName, setFarmerName] = useState("Gurpreet Singh");
-  const [voiceSimText, setVoiceSimText] = useState("हैलस्टॉर्म और तेज बारिश से हमारी 4 एकड़ धान की फसल खराब हो गई है, कृपया मुआबजा सर्टिफिकेट दें।");
-
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -116,20 +120,25 @@ export default function CropDamage() {
       <div className="voice-bot-banner">
         <div className="voice-bot-header">
           <span className="voice-icon">🎙️</span>
-          <strong>Telegram &amp; Voice Claim Assistant (Simulated Audio Stream)</strong>
+          <strong>Telegram Crop Claim Assistant</strong>
         </div>
-        <div className="voice-bot-input-row">
-          <input
-            type="text"
-            className="voice-text-box"
-            value={voiceSimText}
-            onChange={(e) => setVoiceSimText(e.target.value)}
-            placeholder="Speak crop issue in Hindi / Punjabi / Marathi / English..."
-          />
-          <button className="btn-voice-sync" onClick={() => handleAnalyze()}>
-            Sync &amp; Analyze Voice Claim ⚡
-          </button>
-        </div>
+        <p className="voice-bot-description">
+          Share a farm location and describe the crop damage by text or voice in Telegram.
+        </p>
+        {telegramBotUrl ? (
+          <a
+            className="btn-voice-sync"
+            href={telegramBotUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open Telegram bot
+          </a>
+        ) : (
+          <p className="voice-bot-setup">
+            Set VITE_TELEGRAM_BOT_USERNAME in the Vercel frontend environment to link your bot.
+          </p>
+        )}
       </div>
 
       {/* Form Controls */}

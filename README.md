@@ -79,6 +79,8 @@ flowchart TD
 
 ## 🚀 Running SatQuery Locally
 
+For cloud deployment on Vercel and Render, provider API keys, and current Telegram bot status, see the [Cloud Deployment Setup Guide](docs/CLOUD_DEPLOYMENT_SETUP.md).
+
 ### 1. Backend (FastAPI)
 ```bash
 cd backend

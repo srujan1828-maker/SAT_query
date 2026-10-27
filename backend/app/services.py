@@ -35,6 +35,7 @@ SENTINEL_TILE_URL = (
 @dataclass(frozen=True)
 class Settings:
     geochat_url: str | None
+    geochat_api_key: str | None
     geochat_timeout_seconds: float
     geochat_attempts: int
     gemini_api_key: str | None
@@ -51,6 +52,7 @@ class Settings:
         )
         return cls(
             geochat_url=os.getenv("GEOCHAT_ENDPOINT_URL") or None,
+            geochat_api_key=os.getenv("GEOCHAT_API_KEY") or None,
             geochat_timeout_seconds=positive_float_environment(
                 "GEOCHAT_TIMEOUT_SECONDS", DEFAULT_GEOCHAT_TIMEOUT_SECONDS
             ),
@@ -241,6 +243,11 @@ async def geochat_answer(
                     geochat_infer_url(settings.geochat_url),
                     data={"prompt": prompt, "task": task},
                     files={"image": ("scene", model_image, image_content_type)},
+                    headers=(
+                        {"Authorization": f"Bearer {settings.geochat_api_key}"}
+                        if settings.geochat_api_key
+                        else None
+                    ),
                 )
                 response.raise_for_status()
                 payload = response.json()

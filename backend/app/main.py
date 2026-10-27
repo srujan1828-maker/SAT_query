@@ -41,6 +41,7 @@ from app.models import (
     SafeRouteResult,
 )
 from app.services import geocode_search
+from app.telegram_bot import initialize_telegram_storage, router as telegram_router
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ def db():
 @asynccontextmanager
 async def lifespan(app):
     prune_artifacts()
+    initialize_telegram_storage()
     with db() as con:
         con.execute(
             "CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, status TEXT, created REAL, request TEXT, result TEXT, message TEXT)"
@@ -87,6 +89,7 @@ app = FastAPI(
 )
 
 app.include_router(crop_router)
+app.include_router(telegram_router)
 
 # Broad CORS for hackathon demo and preview environments
 app.add_middleware(

@@ -83,6 +83,45 @@ def test_no_model_returns_only_verified_evidence(monkeypatch):
     )
 
 
+def test_geochat_detections_are_attached_to_the_evidence_image(monkeypatch):
+    monkeypatch.setenv("GEOCHAT_ENDPOINT_URL", "https://geochat.example/infer")
+    monkeypatch.setattr(
+        pipeline, "fetch_observation", lambda r, d, role: obs(r, d, role)
+    )
+
+    async def geochat(prompt, settings, image_data, content_type, task):
+        assert image_data == b"verified-fixture-bytes"
+        assert content_type == "image/png"
+        assert task == "vqa"
+        return (
+            "A river is visible.",
+            [
+                {
+                    "label": "River",
+                    "x_min": 0.1,
+                    "y_min": 0.2,
+                    "x_max": 0.7,
+                    "y_max": 0.8,
+                    "confidence": 0.91,
+                },
+                {"label": "Invalid", "x_min": -1},
+            ],
+            True,
+            None,
+        )
+
+    monkeypatch.setattr(pipeline, "geochat_answer", geochat)
+    result = asyncio.run(pipeline.handle_query(req()))
+
+    assert result.model_provider == "geochat"
+    assert result.analysis_status == "complete"
+    assert result.answer_text == "A river is visible."
+    assert len(result.overlay_boxes) == 1
+    assert result.overlay_boxes[0].image_id == "single"
+    assert result.overlay_boxes[0].label == "River"
+    assert result.overlay_boxes[0].confidence == 0.91
+
+
 def test_unconfigured_paired_task_explains_its_provider_requirement(monkeypatch):
     monkeypatch.setattr(
         pipeline, "fetch_observation", lambda r, d, role: obs(r, d, role)
